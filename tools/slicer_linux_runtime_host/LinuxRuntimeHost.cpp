@@ -2119,10 +2119,18 @@ nlohmann::json LinuxRuntimeHost::not_supported(const std::string& method) const
 
 void LinuxRuntimeHost::queue_event(std::int64_t agent_handle, const std::string& name, const nlohmann::json& payload)
 {
-    if (m_shutting_down.load(std::memory_order_acquire))
+    if (m_shutting_down.load(std::memory_order_acquire)) {
+        host_log_json("diag.queue_event.drop", {{"agent", agent_handle}, {"name", name}, {"reason", "shutting_down"}});
         return;
-    std::lock_guard<std::mutex> lock(m_events_mutex);
-    m_events.push_back({{"agent", agent_handle}, {"name", name}, {"payload", payload}});
+    }
+
+    std::size_t queue_depth = 0;
+    {
+        std::lock_guard<std::mutex> lock(m_events_mutex);
+        m_events.push_back({{"agent", agent_handle}, {"name", name}, {"payload", payload}});
+        queue_depth = m_events.size();
+    }
+    host_log_json("diag.queue_event", {{"agent", agent_handle}, {"name", name}, {"queue_depth", queue_depth}});
 }
 
 void LinuxRuntimeHost::queue_tunnel_event(std::int64_t tunnel_handle, const std::string& name, const nlohmann::json& payload)
@@ -2135,12 +2143,21 @@ void LinuxRuntimeHost::queue_tunnel_event(std::int64_t tunnel_handle, const std:
 
 nlohmann::json LinuxRuntimeHost::drain_events(std::size_t limit)
 {
-    std::lock_guard<std::mutex> lock(m_events_mutex);
     nlohmann::json arr = nlohmann::json::array();
-    while (!m_events.empty() && arr.size() < limit) {
-        arr.push_back(m_events.front());
-        m_events.pop_front();
+    std::size_t queued_before = 0;
+    std::size_t remaining = 0;
+    {
+        std::lock_guard<std::mutex> lock(m_events_mutex);
+        queued_before = m_events.size();
+        while (!m_events.empty() && arr.size() < limit) {
+            arr.push_back(m_events.front());
+            m_events.pop_front();
+        }
+        remaining = m_events.size();
     }
+
+    if (!arr.empty())
+        host_log_json("diag.drain_events", {{"limit", limit}, {"queued_before", queued_before}, {"drained", arr.size()}, {"remaining", remaining}});
     return {{"ok", true}, {"events", arr}};
 }
 
@@ -2879,13 +2896,19 @@ nlohmann::json LinuxRuntimeHost::handle(const std::string& method, const nlohman
         auto f = net<int (*)(void*, OnPrinterConnectedFn)>("bambu_network_set_on_printer_connected_fn");
         auto a = lookup_agent();
         if (!f || !a) return not_supported(method);
-        return {{"ok", true}, {"value", f(a, [this, agent_id](std::string topic_str) { queue_event(agent_id, "on_printer_connected", {{"topic_str", topic_str}}); })}};
+        return {{"ok", true}, {"value", f(a, [this, agent_id](std::string topic_str) {
+            host_log_json("diag.vendor_callback", {{"agent", agent_id}, {"name", "on_printer_connected"}});
+            queue_event(agent_id, "on_printer_connected", {{"topic_str", topic_str}});
+        })}};
     }
     if (method == "net.set_on_server_connected_fn") {
         auto f = net<int (*)(void*, OnServerConnectedFn)>("bambu_network_set_on_server_connected_fn");
         auto a = lookup_agent();
         if (!f || !a) return not_supported(method);
-        return {{"ok", true}, {"value", f(a, [this, agent_id](int return_code, int reason_code) { queue_event(agent_id, "on_server_connected", {{"return_code", return_code}, {"reason_code", reason_code}}); })}};
+        return {{"ok", true}, {"value", f(a, [this, agent_id](int return_code, int reason_code) {
+            host_log_json("diag.vendor_callback", {{"agent", agent_id}, {"name", "on_server_connected"}, {"return_code", return_code}, {"reason_code", reason_code}});
+            queue_event(agent_id, "on_server_connected", {{"return_code", return_code}, {"reason_code", reason_code}});
+        })}};
     }
     if (method == "net.set_on_http_error_fn") {
         auto f = net<int (*)(void*, OnHttpErrorFn)>("bambu_network_set_on_http_error_fn");
@@ -2924,25 +2947,37 @@ nlohmann::json LinuxRuntimeHost::handle(const std::string& method, const nlohman
         auto f = net<int (*)(void*, OnMessageFn)>("bambu_network_set_on_message_fn");
         auto a = lookup_agent();
         if (!f || !a) return not_supported(method);
-        return {{"ok", true}, {"value", f(a, [this, agent_id](std::string dev_id, std::string msg) { queue_event(agent_id, "on_message", {{"dev_id", dev_id}, {"msg", msg}}); })}};
+        return {{"ok", true}, {"value", f(a, [this, agent_id](std::string dev_id, std::string msg) {
+            host_log_json("diag.vendor_callback", {{"agent", agent_id}, {"name", "on_message"}});
+            queue_event(agent_id, "on_message", {{"dev_id", dev_id}, {"msg", msg}});
+        })}};
     }
     if (method == "net.set_on_user_message_fn") {
         auto f = net<int (*)(void*, OnMessageFn)>("bambu_network_set_on_user_message_fn");
         auto a = lookup_agent();
         if (!f || !a) return not_supported(method);
-        return {{"ok", true}, {"value", f(a, [this, agent_id](std::string dev_id, std::string msg) { queue_event(agent_id, "on_user_message", {{"dev_id", dev_id}, {"msg", msg}}); })}};
+        return {{"ok", true}, {"value", f(a, [this, agent_id](std::string dev_id, std::string msg) {
+            host_log_json("diag.vendor_callback", {{"agent", agent_id}, {"name", "on_user_message"}});
+            queue_event(agent_id, "on_user_message", {{"dev_id", dev_id}, {"msg", msg}});
+        })}};
     }
     if (method == "net.set_on_local_connect_fn") {
         auto f = net<int (*)(void*, OnLocalConnectedFn)>("bambu_network_set_on_local_connect_fn");
         auto a = lookup_agent();
         if (!f || !a) return not_supported(method);
-        return {{"ok", true}, {"value", f(a, [this, agent_id](int status, std::string dev_id, std::string msg) { queue_event(agent_id, "on_local_connect", {{"status", status}, {"dev_id", dev_id}, {"msg", msg}}); })}};
+        return {{"ok", true}, {"value", f(a, [this, agent_id](int status, std::string dev_id, std::string msg) {
+            host_log_json("diag.vendor_callback", {{"agent", agent_id}, {"name", "on_local_connect"}, {"status", status}});
+            queue_event(agent_id, "on_local_connect", {{"status", status}, {"dev_id", dev_id}, {"msg", msg}});
+        })}};
     }
     if (method == "net.set_on_local_message_fn") {
         auto f = net<int (*)(void*, OnMessageFn)>("bambu_network_set_on_local_message_fn");
         auto a = lookup_agent();
         if (!f || !a) return not_supported(method);
-        return {{"ok", true}, {"value", f(a, [this, agent_id](std::string dev_id, std::string msg) { queue_event(agent_id, "on_local_message", {{"dev_id", dev_id}, {"msg", msg}}); })}};
+        return {{"ok", true}, {"value", f(a, [this, agent_id](std::string dev_id, std::string msg) {
+            host_log_json("diag.vendor_callback", {{"agent", agent_id}, {"name", "on_local_message"}});
+            queue_event(agent_id, "on_local_message", {{"dev_id", dev_id}, {"msg", msg}});
+        })}};
     }
     if (method == "net.set_queue_on_main_fn") {
         auto f = net<int (*)(void*, QueueOnMainFn)>("bambu_network_set_queue_on_main_fn");
