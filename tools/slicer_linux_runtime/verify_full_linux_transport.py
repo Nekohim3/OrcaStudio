@@ -487,6 +487,8 @@ require(
     "_default_linux_runtime_dir",
     "file(GLOB _default_linux_runtime_files",
     "tools/slicer_linux_runtime_host/runtime/linux-x86_64",
+    'if (NOT EXISTS "${_default_linux_runtime_dir}/ca-certificates.crt")',
+    'if (NOT EXISTS "${_default_linux_runtime_dir}/slicer_base64.cer")',
 )
 require(
     "build_release_macos.sh",
