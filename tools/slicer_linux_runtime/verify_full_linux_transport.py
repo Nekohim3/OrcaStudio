@@ -1028,12 +1028,17 @@ require(
     "src/slic3r/Utils/SlicerLinuxRuntime/SlicerLinuxRuntimeForwarderState.cpp",
     "slicer_linux_runtime_forwarder.log",
     'runtime_diag_log("dispatch_agent_event"',
+    'runtime_diag_log("dispatch_agent_event.on_local_connect"',
     'runtime_diag_log("callback_state"',
     'runtime_diag_log("queued_main_callback.invoke"',
 )
 require(
     "src/slic3r/Utils/SlicerLinuxRuntime/SlicerLinuxRuntimeEventPump.cpp",
     'runtime_diag_log("poll_events.agent_event"',
+)
+require(
+    "tools/slicer_linux_runtime_host/LinuxRuntimeHost.cpp",
+    'diagnostic["msg_code"] = msg',
 )
 require(
     "src/slic3r/GUI/WebGuideDialog.cpp",

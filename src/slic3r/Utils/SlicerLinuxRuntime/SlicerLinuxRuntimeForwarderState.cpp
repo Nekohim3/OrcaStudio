@@ -527,6 +527,14 @@ void dispatch_agent_event(std::int64_t remote_handle, const std::string& name, c
         const int status = payload.value("status", 0);
         const auto dev_id = payload.value("dev_id", std::string());
         const auto msg = payload.value("msg", std::string());
+        nlohmann::json diagnostic = {
+            {"agent", remote_handle},
+            {"status", status},
+            {"msg_len", msg.size()},
+        };
+        if (!msg.empty() && msg.size() <= 16 && msg.find_first_not_of("0123456789-") == std::string::npos)
+            diagnostic["msg_code"] = msg;
+        runtime_diag_log("dispatch_agent_event.on_local_connect", diagnostic);
         log_callback_state(remote_handle, name, static_cast<bool>(cb), static_cast<bool>(queue));
         if (cb) run_or_queue(queue, [cb, status, dev_id, msg] { cb(status, dev_id, msg); }, name);
         return;

@@ -2966,7 +2966,15 @@ nlohmann::json LinuxRuntimeHost::handle(const std::string& method, const nlohman
         auto a = lookup_agent();
         if (!f || !a) return not_supported(method);
         return {{"ok", true}, {"value", f(a, [this, agent_id](int status, std::string dev_id, std::string msg) {
-            host_log_json("diag.vendor_callback", {{"agent", agent_id}, {"name", "on_local_connect"}, {"status", status}});
+            nlohmann::json diagnostic = {
+                {"agent", agent_id},
+                {"name", "on_local_connect"},
+                {"status", status},
+                {"msg_len", msg.size()},
+            };
+            if (!msg.empty() && msg.size() <= 16 && msg.find_first_not_of("0123456789-") == std::string::npos)
+                diagnostic["msg_code"] = msg;
+            host_log_json("diag.vendor_callback", diagnostic);
             queue_event(agent_id, "on_local_connect", {{"status", status}, {"dev_id", dev_id}, {"msg", msg}});
         })}};
     }
