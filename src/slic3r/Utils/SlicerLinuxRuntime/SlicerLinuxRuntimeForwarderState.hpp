@@ -148,6 +148,10 @@ void* new_agent(const std::string& log_dir);
 int delete_agent(void* handle);
 RuntimeTunnel* as_tunnel_handle(void* handle);
 
+void configure_runtime_diag_log(const std::string& log_dir) noexcept;
+void runtime_diag_log(const std::string& kind,
+                      const nlohmann::json& fields = nlohmann::json::object()) noexcept;
+
 void register_remote_agent(RuntimeAgent* agent);
 void unregister_remote_agent(RuntimeAgent* agent);
 RuntimeAgentLease acquire_remote_agent(std::int64_t remote_handle);

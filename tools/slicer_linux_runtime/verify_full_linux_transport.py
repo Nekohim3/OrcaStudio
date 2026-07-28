@@ -1025,6 +1025,17 @@ require(
     'file_name == "runtime-files.sha256"',
 )
 require(
+    "src/slic3r/Utils/SlicerLinuxRuntime/SlicerLinuxRuntimeForwarderState.cpp",
+    "slicer_linux_runtime_forwarder.log",
+    'runtime_diag_log("dispatch_agent_event"',
+    'runtime_diag_log("callback_state"',
+    'runtime_diag_log("queued_main_callback.invoke"',
+)
+require(
+    "src/slic3r/Utils/SlicerLinuxRuntime/SlicerLinuxRuntimeEventPump.cpp",
+    'runtime_diag_log("poll_events.agent_event"',
+)
+require(
     "src/slic3r/GUI/WebGuideDialog.cpp",
     'InstallNetplugin = requested && !network_plugin_ready',
     'set_bool("installed_networking", requested && network_plugin_ready)',

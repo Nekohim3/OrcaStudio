@@ -463,6 +463,10 @@ static int set_agent_callback(const char* method, RuntimeAgent* agent, Fn Runtim
         << " agent=" << agent_id(agent)
         << " method=" << method
         << " callback=" << callback_set;
+    runtime_diag_log("set_agent_callback",
+                     {{"agent", agent_id(agent)},
+                      {"method", method},
+                      {"callback", callback_set}});
     return register_remote_callback(method, agent);
 }
 
@@ -503,6 +507,11 @@ static int register_remote_callback(const char* method, RuntimeAgent* a)
         << " method=" << method
         << " ok=" << j.value("ok", false)
         << " value=" << value;
+    runtime_diag_log("register_remote_callback",
+                     {{"agent", agent_id(a)},
+                      {"method", method},
+                      {"ok", j.value("ok", false)},
+                      {"value", value}});
     return value;
 }
 
