@@ -1,6 +1,9 @@
 #include "SlicerLinuxRuntimeForwarderState.hpp"
 #include "SlicerLinuxRuntimeRpcClient.hpp"
 
+#include <boost/log/trivial.hpp>
+#include <filesystem>
+#include <fstream>
 #include <functional>
 #if defined(_WIN32)
 #include <codecvt>
@@ -15,6 +18,9 @@ std::mutex g_remote_tunnels_mutex;
 std::map<std::int64_t, RuntimeTunnel*> g_remote_tunnels;
 std::map<RuntimeTunnel*, RuntimeTunnel*> g_tunnel_handles;
 std::atomic<std::size_t> g_queued_main_callbacks{0};
+std::mutex g_runtime_diag_mutex;
+std::filesystem::path g_runtime_diag_path;
+std::uint64_t g_runtime_diag_sequence{0};
 
 class QueuedMainCallback {
 public:
@@ -38,16 +44,64 @@ private:
     std::function<void()> m_fn;
 };
 
-void run_or_queue(const BBL::QueueOnMainFn& queue_on_main, std::function<void()> fn)
+void run_or_queue(const BBL::QueueOnMainFn& queue_on_main, std::function<void()> fn,
+                  const std::string& event_name = std::string())
 {
-    if (!fn)
+    if (!fn) {
+        BOOST_LOG_TRIVIAL(warning)
+            << "[SLRDIAG] run_or_queue missing_callback"
+            << " name=" << event_name;
+        runtime_diag_log("run_or_queue.missing_callback", {{"name", event_name}});
         return;
+    }
+
+    BOOST_LOG_TRIVIAL(info)
+        << "[SLRDIAG] run_or_queue"
+        << " name=" << event_name
+        << " queue_on_main=" << static_cast<bool>(queue_on_main);
+    runtime_diag_log("run_or_queue",
+                     {{"name", event_name}, {"queue_on_main", static_cast<bool>(queue_on_main)}});
+
     if (queue_on_main) {
         auto pending = std::make_shared<QueuedMainCallback>(std::move(fn));
-        queue_on_main([pending] { pending->invoke(); });
+        queue_on_main([pending, event_name] {
+            BOOST_LOG_TRIVIAL(info)
+                << "[SLRDIAG] queued_main_callback invoke"
+                << " name=" << event_name;
+            runtime_diag_log("queued_main_callback.invoke", {{"name", event_name}});
+            pending->invoke();
+            BOOST_LOG_TRIVIAL(info)
+                << "[SLRDIAG] queued_main_callback complete"
+                << " name=" << event_name;
+            runtime_diag_log("queued_main_callback.complete", {{"name", event_name}});
+        });
     } else {
+        BOOST_LOG_TRIVIAL(info)
+            << "[SLRDIAG] direct_callback invoke"
+            << " name=" << event_name;
+        runtime_diag_log("direct_callback.invoke", {{"name", event_name}});
         fn();
+        BOOST_LOG_TRIVIAL(info)
+            << "[SLRDIAG] direct_callback complete"
+            << " name=" << event_name;
+        runtime_diag_log("direct_callback.complete", {{"name", event_name}});
     }
+}
+
+void log_callback_state(std::int64_t remote_handle, const std::string& name,
+                        bool callback, bool queue_on_main)
+{
+    BOOST_LOG_TRIVIAL(info)
+        << "[SLRDIAG] callback_state"
+        << " agent=" << remote_handle
+        << " name=" << name
+        << " callback=" << callback
+        << " queue_on_main=" << queue_on_main;
+    runtime_diag_log("callback_state",
+                     {{"agent", remote_handle},
+                      {"name", name},
+                      {"callback", callback},
+                      {"queue_on_main", queue_on_main}});
 }
 
 #if defined(_WIN32)
@@ -63,6 +117,43 @@ std::wstring utf8_to_wstring(const std::string& s)
 #endif
 }
 
+void configure_runtime_diag_log(const std::string& log_dir) noexcept
+{
+    if (log_dir.empty())
+        return;
+    try {
+        const auto path = std::filesystem::u8path(log_dir) / "slicer_linux_runtime_forwarder.log";
+        std::lock_guard<std::mutex> lock(g_runtime_diag_mutex);
+        if (path == g_runtime_diag_path)
+            return;
+
+        g_runtime_diag_path = path;
+        g_runtime_diag_sequence = 0;
+        std::ofstream out(g_runtime_diag_path, std::ios::binary | std::ios::trunc);
+        if (out)
+            out << "[SLRDIAG] {\"kind\":\"session.start\",\"seq\":0}\n";
+    } catch (...) {
+    }
+}
+
+void runtime_diag_log(const std::string& kind, const nlohmann::json& fields) noexcept
+{
+    try {
+        std::lock_guard<std::mutex> lock(g_runtime_diag_mutex);
+        if (g_runtime_diag_path.empty())
+            return;
+
+        nlohmann::json record = fields.is_object() ? fields : nlohmann::json::object();
+        record["kind"] = kind;
+        record["seq"] = ++g_runtime_diag_sequence;
+
+        std::ofstream out(g_runtime_diag_path, std::ios::binary | std::ios::app);
+        if (out)
+            out << "[SLRDIAG] " << record.dump() << '\n';
+    } catch (...) {
+    }
+}
+
 RuntimeAgent* as_agent(void* handle)
 {
     return reinterpret_cast<RuntimeAgent*>(handle);
@@ -70,6 +161,8 @@ RuntimeAgent* as_agent(void* handle)
 
 void* new_agent(const std::string& log_dir)
 {
+    configure_runtime_diag_log(log_dir);
+    runtime_diag_log("agent.new", {{"log_dir_configured", !log_dir.empty()}});
     auto* agent = new RuntimeAgent();
     agent->log_dir = log_dir;
     return agent;
@@ -299,9 +392,22 @@ std::size_t active_queued_main_callback_count()
 
 void dispatch_agent_event(std::int64_t remote_handle, const std::string& name, const nlohmann::json& payload)
 {
+    BOOST_LOG_TRIVIAL(info)
+        << "[SLRDIAG] dispatch_agent_event"
+        << " agent=" << remote_handle
+        << " name=" << name;
+    runtime_diag_log("dispatch_agent_event", {{"agent", remote_handle}, {"name", name}});
+
     auto lease = acquire_remote_agent(remote_handle);
-    if (!lease)
+    if (!lease) {
+        BOOST_LOG_TRIVIAL(warning)
+            << "[SLRDIAG] dispatch_agent_event missing_agent"
+            << " agent=" << remote_handle
+            << " name=" << name;
+        runtime_diag_log("dispatch_agent_event.missing_agent",
+                         {{"agent", remote_handle}, {"name", name}});
         return;
+    }
     RuntimeAgent* agent = lease.get();
 
     if (name == "on_ssdp_msg") {
@@ -339,7 +445,8 @@ void dispatch_agent_event(std::int64_t remote_handle, const std::string& name, c
             queue = agent->queue_on_main;
         }
         const auto topic = payload.value("topic_str", std::string());
-        if (cb) run_or_queue(queue, [cb, topic] { cb(topic); });
+        log_callback_state(remote_handle, name, static_cast<bool>(cb), static_cast<bool>(queue));
+        if (cb) run_or_queue(queue, [cb, topic] { cb(topic); }, name);
         return;
     }
     if (name == "on_server_connected") {
@@ -353,7 +460,8 @@ void dispatch_agent_event(std::int64_t remote_handle, const std::string& name, c
             cb = agent->on_server_connected;
             queue = agent->queue_on_main;
         }
-        if (cb) run_or_queue(queue, [cb, return_code, reason_code] { cb(return_code, reason_code); });
+        log_callback_state(remote_handle, name, static_cast<bool>(cb), static_cast<bool>(queue));
+        if (cb) run_or_queue(queue, [cb, return_code, reason_code] { cb(return_code, reason_code); }, name);
         return;
     }
     if (name == "on_http_error") {
@@ -404,7 +512,8 @@ void dispatch_agent_event(std::int64_t remote_handle, const std::string& name, c
         }
         const auto dev_id = payload.value("dev_id", std::string());
         const auto msg = payload.value("msg", std::string());
-        if (cb) run_or_queue(queue, [cb, dev_id, msg] { cb(dev_id, msg); });
+        log_callback_state(remote_handle, name, static_cast<bool>(cb), static_cast<bool>(queue));
+        if (cb) run_or_queue(queue, [cb, dev_id, msg] { cb(dev_id, msg); }, name);
         return;
     }
     if (name == "on_local_connect") {
@@ -418,7 +527,16 @@ void dispatch_agent_event(std::int64_t remote_handle, const std::string& name, c
         const int status = payload.value("status", 0);
         const auto dev_id = payload.value("dev_id", std::string());
         const auto msg = payload.value("msg", std::string());
-        if (cb) run_or_queue(queue, [cb, status, dev_id, msg] { cb(status, dev_id, msg); });
+        nlohmann::json diagnostic = {
+            {"agent", remote_handle},
+            {"status", status},
+            {"msg_len", msg.size()},
+        };
+        if (!msg.empty() && msg.size() <= 16 && msg.find_first_not_of("0123456789-") == std::string::npos)
+            diagnostic["msg_code"] = msg;
+        runtime_diag_log("dispatch_agent_event.on_local_connect", diagnostic);
+        log_callback_state(remote_handle, name, static_cast<bool>(cb), static_cast<bool>(queue));
+        if (cb) run_or_queue(queue, [cb, status, dev_id, msg] { cb(status, dev_id, msg); }, name);
         return;
     }
     if (name == "on_server_error") {

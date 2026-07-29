@@ -45,7 +45,8 @@ bool runtime_component_preflight(const boost::filesystem::path& component_folder
         Slic3r::SlicerLinuxRuntime::linux_component_library_name(),
         Slic3r::SlicerLinuxRuntime::linux_source_library_name(),
         "ca-certificates.crt",
-        "slicer_base64.cer"
+        "slicer_base64.cer",
+        "printer.cer"
     };
 
     for (const auto& file_name : common_required_files) {

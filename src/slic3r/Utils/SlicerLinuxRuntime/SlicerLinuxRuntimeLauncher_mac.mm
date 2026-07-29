@@ -145,6 +145,7 @@ std::string first_missing_runtime_file(const std::filesystem::path& component_di
         std::string("run_auth_browser.sh"),
         std::string("ca-certificates.crt"),
         std::string("slicer_base64.cer"),
+        std::string("printer.cer"),
         std::string("ld-linux-x86-64.so.2"),
         std::string("libc.so.6"),
         std::string("libm.so.6"),

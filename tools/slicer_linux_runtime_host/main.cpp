@@ -175,9 +175,13 @@ int run_probe_auth()
 
     const std::filesystem::path component_dir(component_dir_value);
     const std::filesystem::path cert_path = component_dir / "slicer_base64.cer";
+    const std::filesystem::path printer_cert_path = component_dir / "printer.cer";
     std::error_code cert_error;
     if (!std::filesystem::is_regular_file(cert_path, cert_error) || cert_error)
         return 131;
+    cert_error.clear();
+    if (!std::filesystem::is_regular_file(printer_cert_path, cert_error) || cert_error)
+        return 132;
 
     LinuxRuntimeHost host;
     const auto handshake = host.handle("runtime.handshake", nlohmann::json::object());

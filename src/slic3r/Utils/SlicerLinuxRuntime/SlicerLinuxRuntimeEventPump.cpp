@@ -3,6 +3,7 @@
 #include "SlicerLinuxRuntimeForwarderState.hpp"
 
 #include <atomic>
+#include <boost/log/trivial.hpp>
 #include <chrono>
 #include <mutex>
 #include <thread>
@@ -12,11 +13,6 @@ namespace {
 std::mutex g_pump_mutex;
 std::thread g_pump_thread;
 std::atomic<bool> g_stop{false};
-
-bool has_events(const nlohmann::json& j)
-{
-    return j.value("ok", false) && j.contains("events") && j["events"].is_array() && !j["events"].empty();
-}
 }
 
 EventPump& EventPump::instance()
@@ -59,6 +55,10 @@ void EventPump::stop()
 void EventPump::run()
 {
     using namespace std::chrono_literals;
+    std::size_t empty_poll_count = 0;
+    BOOST_LOG_TRIVIAL(info) << "[SLRDIAG] event_pump start";
+    runtime_diag_log("event_pump.start");
+
     while (!g_stop.load()) {
         auto& rpc = RpcClient::instance();
         if (!rpc.is_started()) {
@@ -67,19 +67,66 @@ void EventPump::run()
         }
 
         const auto j = rpc.invoke_json("runtime.poll_events", {{"limit", 64}});
-        if (!has_events(j)) {
+        const bool ok = j.value("ok", false);
+        const bool has_event_array = j.contains("events") && j["events"].is_array();
+        const std::size_t event_count = has_event_array ? j["events"].size() : 0;
+        if (!ok || !has_event_array) {
+            BOOST_LOG_TRIVIAL(warning)
+                << "[SLRDIAG] poll_events invalid_response"
+                << " ok=" << ok
+                << " has_event_array=" << has_event_array
+                << " has_error=" << j.contains("error");
+            runtime_diag_log("poll_events.invalid_response",
+                             {{"ok", ok},
+                              {"has_event_array", has_event_array},
+                              {"has_error", j.contains("error")}});
+            std::this_thread::sleep_for(80ms);
+            continue;
+        }
+        if (event_count == 0) {
+            ++empty_poll_count;
+            if (empty_poll_count == 1 || empty_poll_count % 25 == 0) {
+                BOOST_LOG_TRIVIAL(info) << "[SLRDIAG] poll_events empty count=" << empty_poll_count;
+                runtime_diag_log("poll_events.empty", {{"count", empty_poll_count}});
+            }
             std::this_thread::sleep_for(80ms);
             continue;
         }
 
+        BOOST_LOG_TRIVIAL(info) << "[SLRDIAG] poll_events count=" << event_count;
+        runtime_diag_log("poll_events", {{"count", event_count}});
+        empty_poll_count = 0;
+
         for (const auto& ev : j["events"]) {
             const auto payload = ev.contains("payload") ? ev["payload"] : nlohmann::json::object();
-            if (ev.contains("agent"))
-                dispatch_agent_event(ev.value("agent", 0LL), ev.value("name", std::string()), payload);
-            else if (ev.contains("tunnel"))
-                dispatch_tunnel_event(ev.value("tunnel", 0LL), ev.value("name", std::string()), payload);
+            const auto name = ev.value("name", std::string());
+            if (ev.contains("agent")) {
+                const auto agent = ev.value("agent", 0LL);
+                BOOST_LOG_TRIVIAL(info)
+                    << "[SLRDIAG] poll_events agent_event"
+                    << " agent=" << agent
+                    << " name=" << name;
+                runtime_diag_log("poll_events.agent_event", {{"agent", agent}, {"name", name}});
+                dispatch_agent_event(agent, name, payload);
+            } else if (ev.contains("tunnel")) {
+                const auto tunnel = ev.value("tunnel", 0LL);
+                BOOST_LOG_TRIVIAL(info)
+                    << "[SLRDIAG] poll_events tunnel_event"
+                    << " tunnel=" << tunnel
+                    << " name=" << name;
+                runtime_diag_log("poll_events.tunnel_event", {{"tunnel", tunnel}, {"name", name}});
+                dispatch_tunnel_event(tunnel, name, payload);
+            } else {
+                BOOST_LOG_TRIVIAL(warning)
+                    << "[SLRDIAG] poll_events unaddressed_event"
+                    << " name=" << name;
+                runtime_diag_log("poll_events.unaddressed_event", {{"name", name}});
+            }
         }
     }
+
+    BOOST_LOG_TRIVIAL(info) << "[SLRDIAG] event_pump stop";
+    runtime_diag_log("event_pump.stop");
 }
 
 }

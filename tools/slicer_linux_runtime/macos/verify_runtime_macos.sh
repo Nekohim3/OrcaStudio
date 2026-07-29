@@ -190,7 +190,7 @@ compare_copied_payload() {
         [[ -f "$path" ]] || continue
         base=$(basename -- "$path")
         case "$base" in
-            slicer_linux_runtime_host|slicer_linux_runtime_host_abi1|slicer_linux_runtime_host_abi0|slicer_linux_auth_browser|slicer_linux_auth_browser_x86_64|slicer_linux_auth_browser_aarch64|run_auth_browser.sh|libbambu_networking.so|libBambuSource.so|linux_component_manifest.json|runtime-files.sha256|ca-certificates.crt|slicer_base64.cer|ld-linux-x86-64.so.2|lib*.so|lib*.so.*|*.so|*.so.*)
+            slicer_linux_runtime_host|slicer_linux_runtime_host_abi1|slicer_linux_runtime_host_abi0|slicer_linux_auth_browser|slicer_linux_auth_browser_x86_64|slicer_linux_auth_browser_aarch64|run_auth_browser.sh|libbambu_networking.so|libBambuSource.so|linux_component_manifest.json|runtime-files.sha256|ca-certificates.crt|slicer_base64.cer|printer.cer|ld-linux-x86-64.so.2|lib*.so|lib*.so.*|*.so|*.so.*)
                 compare_file "$path" "$RUNTIME_DIR/$base" "$base"
                 ;;
         esac
@@ -207,7 +207,7 @@ sync_payload_files_from_dir() {
         [[ -f "$path" ]] || continue
         base=$(basename -- "$path")
         case "$base" in
-            slicer_linux_runtime_host|slicer_linux_runtime_host_abi1|slicer_linux_runtime_host_abi0|slicer_linux_auth_browser|slicer_linux_auth_browser_x86_64|slicer_linux_auth_browser_aarch64|run_auth_browser.sh|libbambu_networking.so|libBambuSource.so|linux_component_manifest.json|runtime-files.sha256|ca-certificates.crt|slicer_base64.cer|ld-linux-x86-64.so.2|lib*.so|lib*.so.*|*.so|*.so.*)
+            slicer_linux_runtime_host|slicer_linux_runtime_host_abi1|slicer_linux_runtime_host_abi0|slicer_linux_auth_browser|slicer_linux_auth_browser_x86_64|slicer_linux_auth_browser_aarch64|run_auth_browser.sh|libbambu_networking.so|libBambuSource.so|linux_component_manifest.json|runtime-files.sha256|ca-certificates.crt|slicer_base64.cer|printer.cer|ld-linux-x86-64.so.2|lib*.so|lib*.so.*|*.so|*.so.*)
                 if [[ ! -f "$RUNTIME_DIR/$base" ]] || ! cmp -s "$path" "$RUNTIME_DIR/$base"; then
                     atomic_copy_file "$path" "$RUNTIME_DIR/$base"
                 fi
@@ -313,6 +313,7 @@ require_file "$COMPONENT_DIR/ca-certificates.crt" "ca-certificates.crt"
 validate_ca_bundle "$COMPONENT_DIR/ca-certificates.crt" "ca-certificates.crt"
 validate_runtime_manifest "$COMPONENT_DIR"
 require_file "$COMPONENT_DIR/slicer_base64.cer" "slicer_base64.cer"
+require_file "$COMPONENT_DIR/printer.cer" "printer.cer"
 require_file "$COMPONENT_DIR/ld-linux-x86-64.so.2" "ld-linux-x86-64.so.2"
 require_file "$COMPONENT_DIR/libc.so.6" "libc.so.6"
 require_file "$COMPONENT_DIR/libm.so.6" "libm.so.6"
@@ -355,6 +356,7 @@ require_file "$RUNTIME_DIR/ca-certificates.crt" "runtime/ca-certificates.crt"
 validate_ca_bundle "$RUNTIME_DIR/ca-certificates.crt" "runtime/ca-certificates.crt"
 validate_runtime_manifest "$RUNTIME_DIR"
 require_file "$RUNTIME_DIR/slicer_base64.cer" "runtime/slicer_base64.cer"
+require_file "$RUNTIME_DIR/printer.cer" "runtime/printer.cer"
 require_file "$RUNTIME_DIR/ld-linux-x86-64.so.2" "runtime/ld-linux-x86-64.so.2"
 require_file "$RUNTIME_DIR/libc.so.6" "runtime/libc.so.6"
 require_file "$RUNTIME_DIR/libm.so.6" "runtime/libm.so.6"

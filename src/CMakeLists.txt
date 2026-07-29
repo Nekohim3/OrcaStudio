@@ -218,25 +218,46 @@ if (WIN32)
             endif()
         endforeach()
 
-        foreach(_cert_candidate
-            "${CMAKE_SOURCE_DIR}/cert/ca-certificates.crt"
-            "${CMAKE_SOURCE_DIR}/resources/cert/ca-certificates.crt")
-            if (EXISTS "${_cert_candidate}")
-                file(TO_CMAKE_PATH "${_cert_candidate}" _runtime_file_cmake)
-                list(APPEND SLICER_LINUX_RUNTIME_OPTIONAL_WINDOWS_RUNTIME_FILES "${_runtime_file_cmake}")
-                break()
-            endif()
-        endforeach()
+        # runtime-files.sha256 covers the trust assets packaged by the Linux
+        # runtime job. Do not overwrite those files with a second source during
+        # the Windows install step, or the end-user runtime verifier will reject
+        # the otherwise valid bundle. The source-tree copies are fallbacks for a
+        # runtime directory that does not provide its own trust assets.
+        if (NOT EXISTS "${_default_linux_runtime_dir}/ca-certificates.crt")
+            foreach(_cert_candidate
+                "${CMAKE_SOURCE_DIR}/cert/ca-certificates.crt"
+                "${CMAKE_SOURCE_DIR}/resources/cert/ca-certificates.crt")
+                if (EXISTS "${_cert_candidate}")
+                    file(TO_CMAKE_PATH "${_cert_candidate}" _runtime_file_cmake)
+                    list(APPEND SLICER_LINUX_RUNTIME_OPTIONAL_WINDOWS_RUNTIME_FILES "${_runtime_file_cmake}")
+                    break()
+                endif()
+            endforeach()
+        endif()
 
-        foreach(_cert_candidate
-            "${CMAKE_SOURCE_DIR}/cert/slicer_base64.cer"
-            "${CMAKE_SOURCE_DIR}/resources/cert/slicer_base64.cer")
-            if (EXISTS "${_cert_candidate}")
-                file(TO_CMAKE_PATH "${_cert_candidate}" _runtime_file_cmake)
-                list(APPEND SLICER_LINUX_RUNTIME_OPTIONAL_WINDOWS_RUNTIME_FILES "${_runtime_file_cmake}")
-                break()
-            endif()
-        endforeach()
+        if (NOT EXISTS "${_default_linux_runtime_dir}/slicer_base64.cer")
+            foreach(_cert_candidate
+                "${CMAKE_SOURCE_DIR}/cert/slicer_base64.cer"
+                "${CMAKE_SOURCE_DIR}/resources/cert/slicer_base64.cer")
+                if (EXISTS "${_cert_candidate}")
+                    file(TO_CMAKE_PATH "${_cert_candidate}" _runtime_file_cmake)
+                    list(APPEND SLICER_LINUX_RUNTIME_OPTIONAL_WINDOWS_RUNTIME_FILES "${_runtime_file_cmake}")
+                    break()
+                endif()
+            endforeach()
+        endif()
+
+        if (NOT EXISTS "${_default_linux_runtime_dir}/printer.cer")
+            foreach(_cert_candidate
+                "${CMAKE_SOURCE_DIR}/cert/printer.cer"
+                "${CMAKE_SOURCE_DIR}/resources/cert/printer.cer")
+                if (EXISTS "${_cert_candidate}")
+                    file(TO_CMAKE_PATH "${_cert_candidate}" _runtime_file_cmake)
+                    list(APPEND SLICER_LINUX_RUNTIME_OPTIONAL_WINDOWS_RUNTIME_FILES "${_runtime_file_cmake}")
+                    break()
+                endif()
+            endforeach()
+        endif()
     endif()
 endif()
 # target_include_directories(OrcaSlicer PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/slic3r)

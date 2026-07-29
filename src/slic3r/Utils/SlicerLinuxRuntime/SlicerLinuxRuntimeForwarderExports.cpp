@@ -453,10 +453,20 @@ static int set_agent_callback(const char* method, RuntimeAgent* agent, Fn Runtim
 {
     if (!agent)
         return invalid_handle();
+    const bool callback_set = static_cast<bool>(callback);
     {
         std::lock_guard<std::mutex> lock(agent->state_mutex);
         agent->*member = std::move(callback);
     }
+    BOOST_LOG_TRIVIAL(info)
+        << "[SLRDIAG] set_agent_callback"
+        << " agent=" << agent_id(agent)
+        << " method=" << method
+        << " callback=" << callback_set;
+    runtime_diag_log("set_agent_callback",
+                     {{"agent", agent_id(agent)},
+                      {"method", method},
+                      {"callback", callback_set}});
     return register_remote_callback(method, agent);
 }
 
@@ -490,7 +500,19 @@ static int register_remote_callback(const char* method, RuntimeAgent* a)
         return invalid_handle();
     ensure_event_pump();
     const auto j = ok_or_error(RpcClient::instance().invoke_json(method, {{"agent", agent_id(a)}}));
-    return j.value("value", j.value("ret", 0));
+    const int value = j.value("value", j.value("ret", 0));
+    BOOST_LOG_TRIVIAL(info)
+        << "[SLRDIAG] register_remote_callback"
+        << " agent=" << agent_id(a)
+        << " method=" << method
+        << " ok=" << j.value("ok", false)
+        << " value=" << value;
+    runtime_diag_log("register_remote_callback",
+                     {{"agent", agent_id(a)},
+                      {"method", method},
+                      {"ok", j.value("ok", false)},
+                      {"value", value}});
+    return value;
 }
 
 static std::atomic<std::int64_t> g_next_job_id{1};

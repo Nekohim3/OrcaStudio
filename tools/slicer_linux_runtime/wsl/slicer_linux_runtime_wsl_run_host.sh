@@ -64,6 +64,7 @@ resolve_payload_sources() {
     AUTH_RUNNER_SRC="$(find_preferred_file run_auth_browser.sh || true)"
     CA_BUNDLE_SRC="$(find_preferred_file ca-certificates.crt || true)"
     SLICER_CERT_SRC="$(find_preferred_file slicer_base64.cer || true)"
+    PRINTER_CERT_SRC="$(find_preferred_file printer.cer || true)"
     MANIFEST_SRC="$(find_preferred_file linux_component_manifest.json || true)"
 }
 
@@ -98,7 +99,7 @@ append_package_extras() {
         [ -f "$path" ] || continue
         base="$(basename "$path")"
         case "$base" in
-            slicer_linux_runtime_host|slicer_linux_runtime_host_abi1|slicer_linux_runtime_host_abi0|slicer_linux_auth_browser|run_auth_browser.sh|libbambu_networking.so|libBambuSource.so|linux_component_manifest.json|ca-certificates.crt|slicer_base64.cer)
+            slicer_linux_runtime_host|slicer_linux_runtime_host_abi1|slicer_linux_runtime_host_abi0|slicer_linux_auth_browser|run_auth_browser.sh|libbambu_networking.so|libBambuSource.so|linux_component_manifest.json|ca-certificates.crt|slicer_base64.cer|printer.cer)
                 continue
                 ;;
             *.dll|*.ps1|*.txt|*.tar|*.zip|*.cmd|*.bat|*.sh)
@@ -189,6 +190,7 @@ append_source "run_auth_browser.sh" "$AUTH_RUNNER_SRC"
 append_source "linux_component_manifest.json" "$MANIFEST_SRC"
 append_source "ca-certificates.crt" "$CA_BUNDLE_SRC"
 append_source "slicer_base64.cer" "$SLICER_CERT_SRC"
+append_source "printer.cer" "$PRINTER_CERT_SRC"
 append_package_extras
 
 RUNTIME_HASH="$(compute_runtime_hash)"
@@ -206,6 +208,7 @@ log "auth_runner_src=${AUTH_RUNNER_SRC:-missing}"
 log "manifest_src=${MANIFEST_SRC:-missing}"
 log "ca_bundle_src=${CA_BUNDLE_SRC:-missing}"
 log "slicer_cert_src=${SLICER_CERT_SRC:-missing}"
+log "printer_cert_src=${PRINTER_CERT_SRC:-missing}"
 
 if [ ! -d "$TARGET_DIR" ]; then
     TMP_DIR="$RUNTIME_BASE/.tmp-$RUNTIME_HASH-$$"

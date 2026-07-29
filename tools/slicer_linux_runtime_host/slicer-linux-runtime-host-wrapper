@@ -224,7 +224,8 @@ payload_marker() {
             slicer_linux_auth_browser_aarch64 \
             run_auth_browser.sh \
             ca-certificates.crt \
-            slicer_base64.cer; do
+            slicer_base64.cer \
+            printer.cer; do
             hash_named_file "$RUNTIME_DIR/$name" "$name"
         done
         for name in \
@@ -277,7 +278,8 @@ sync_guest_payload() {
         slicer_linux_auth_browser_aarch64 \
         run_auth_browser.sh \
         ca-certificates.crt \
-        slicer_base64.cer; do
+        slicer_base64.cer \
+        printer.cer; do
         copy_to_stage "$RUNTIME_DIR/$name" "$local_stage/$name"
     done
     for name in \
