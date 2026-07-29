@@ -143,6 +143,7 @@ if (APPLE)
         runtime-files.sha256
         ca-certificates.crt
         slicer_base64.cer
+        printer.cer
     )
 
     foreach(SLICER_LINUX_RUNTIME_MAC_REQUIRED_RUNTIME_FILE_NAME ${SLICER_LINUX_RUNTIME_MAC_REQUIRED_RUNTIME_FILE_NAMES})

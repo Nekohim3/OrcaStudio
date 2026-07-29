@@ -1335,7 +1335,7 @@ copy_payload_files_from_dir() {
         [[ -f "$path" ]] || continue
         base=$(basename -- "$path")
         case "$base" in
-            slicer_linux_runtime_host|slicer_linux_runtime_host_abi1|slicer_linux_runtime_host_abi0|slicer_linux_auth_browser|slicer_linux_auth_browser_x86_64|slicer_linux_auth_browser_aarch64|run_auth_browser.sh|libbambu_networking.so|libBambuSource.so|linux_component_manifest.json|runtime-files.sha256|ca-certificates.crt|slicer_base64.cer|ld-linux-x86-64.so.2|lib*.so|lib*.so.*|*.so|*.so.*)
+            slicer_linux_runtime_host|slicer_linux_runtime_host_abi1|slicer_linux_runtime_host_abi0|slicer_linux_auth_browser|slicer_linux_auth_browser_x86_64|slicer_linux_auth_browser_aarch64|run_auth_browser.sh|libbambu_networking.so|libBambuSource.so|linux_component_manifest.json|runtime-files.sha256|ca-certificates.crt|slicer_base64.cer|printer.cer|ld-linux-x86-64.so.2|lib*.so|lib*.so.*|*.so|*.so.*)
                 atomic_copy_file "$path" "$dst_dir/$base"
                 ;;
         esac
@@ -1359,6 +1359,7 @@ copy_runtime_payload() {
         runtime-files.sha256
         ca-certificates.crt
         slicer_base64.cer
+        printer.cer
         ld-linux-x86-64.so.2
         libc.so.6
         libm.so.6

@@ -365,12 +365,25 @@ for vendor_cert in \
     fi
 done
 
+for printer_cert in \
+    "$PROJECT_DIR/cert/printer.cer" \
+    "$PROJECT_DIR/resources/cert/printer.cer"; do
+    if [[ -f "$printer_cert" ]]; then
+        cp -f "$printer_cert" "$RUNTIME_ROOT/printer.cer"
+        break
+    fi
+done
+
 if ! validate_ca_bundle "$RUNTIME_ROOT/ca-certificates.crt"; then
     echo "failed to package a valid CA bundle: ca-certificates.crt" >&2
     exit 1
 fi
 if ! validate_vendor_certificate_file "$RUNTIME_ROOT/slicer_base64.cer"; then
     echo "failed to package a parseable vendor certificate file: slicer_base64.cer" >&2
+    exit 1
+fi
+if ! validate_vendor_certificate_file "$RUNTIME_ROOT/printer.cer"; then
+    echo "failed to package a parseable printer certificate file: printer.cer" >&2
     exit 1
 fi
 

@@ -136,6 +136,7 @@ class MacRuntimeWrapperTests(unittest.TestCase):
             encoding="utf-8",
         )
         (path / "slicer_base64.cer").write_bytes(b"test")
+        (path / "printer.cer").write_bytes(b"test")
         for file in path.iterdir():
             if file.name.startswith("slicer_") or file.name == "run_auth_browser.sh":
                 file.chmod(0o755)

@@ -398,7 +398,7 @@ std::filesystem::path resolve_bootstrap_script_path(const std::filesystem::path&
 
 std::string first_missing_runtime_file(const std::filesystem::path& component_dir)
 {
-    const std::array<std::string, 11> required_files = {{
+    const std::array<std::string, 12> required_files = {{
         host_executable_file_name(),
         std::string("slicer_linux_runtime_host_abi1"),
         std::string("slicer_linux_runtime_host_abi0"),
@@ -409,7 +409,8 @@ std::string first_missing_runtime_file(const std::filesystem::path& component_di
         windows_wsl_rootfs_file_name(),
         windows_component_cache_subdir_file_name(),
         std::string("ca-certificates.crt"),
-        std::string("slicer_base64.cer")
+        std::string("slicer_base64.cer"),
+        std::string("printer.cer")
     }};
 
     for (const std::string& name : required_files) {

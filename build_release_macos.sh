@@ -405,6 +405,7 @@ function build_slicer() {
                 "runtime-files.sha256"
                 "ca-certificates.crt"
                 "slicer_base64.cer"
+                "printer.cer"
                 "ld-linux-x86-64.so.2"
                 "libc.so.6"
                 "libm.so.6"
@@ -467,6 +468,14 @@ function build_slicer() {
                 echo "Missing slicer_base64.cer for Contents/Resources/cert"
                 exit 1
             fi
+            if [ -f "$runtime_src/printer.cer" ]; then
+                cp -f "$runtime_src/printer.cer" "$resources_cert_dst/printer.cer"
+            elif [ -f "$PROJECT_DIR/resources/cert/printer.cer" ]; then
+                cp -f "$PROJECT_DIR/resources/cert/printer.cer" "$resources_cert_dst/printer.cer"
+            else
+                echo "Missing printer.cer for Contents/Resources/cert"
+                exit 1
+            fi
             if [ -f "$runtime_src/ca-certificates.crt" ]; then
                 cp -f "$runtime_src/ca-certificates.crt" "$resources_cert_dst/ca-certificates.crt"
             elif [ -f "$PROJECT_DIR/resources/cert/ca-certificates.crt" ]; then
@@ -474,7 +483,7 @@ function build_slicer() {
             fi
             echo "macOS cert files after packaging:"
             ls -la "$resources_cert_dst" || true
-            ls -la "$runtime_dst"/slicer_base64.cer "$runtime_dst"/ca-certificates.crt 2>/dev/null || true
+            ls -la "$runtime_dst"/slicer_base64.cer "$runtime_dst"/printer.cer "$runtime_dst"/ca-certificates.crt 2>/dev/null || true
 
             frameworks_dst="./$APP_BUNDLE_NAME/Contents/Frameworks"
             mkdir -p "$frameworks_dst"

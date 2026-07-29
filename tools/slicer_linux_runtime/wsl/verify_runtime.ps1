@@ -570,7 +570,8 @@ $requiredFiles = @(
     'windows-wsl2-rootfs.tar',
     'runtime-files.sha256',
     'ca-certificates.crt',
-    'slicer_base64.cer'
+    'slicer_base64.cer',
+    'printer.cer'
 )
 
 foreach ($name in $requiredFiles) {

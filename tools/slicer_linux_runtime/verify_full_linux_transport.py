@@ -489,6 +489,7 @@ require(
     "tools/slicer_linux_runtime_host/runtime/linux-x86_64",
     'if (NOT EXISTS "${_default_linux_runtime_dir}/ca-certificates.crt")',
     'if (NOT EXISTS "${_default_linux_runtime_dir}/slicer_base64.cer")',
+    'if (NOT EXISTS "${_default_linux_runtime_dir}/printer.cer")',
 )
 require(
     "build_release_macos.sh",
@@ -701,14 +702,27 @@ require(
     "tools/slicer_linux_runtime_host/main.cpp",
     "net.set_cert_file",
     "slicer_base64.cer",
+    "printer.cer",
     "net.destroy_agent",
     'unsetenv("LD_PRELOAD")',
+)
+require(
+    "tools/slicer_linux_runtime_host/package_linux_host_runtime.sh",
+    '"$PROJECT_DIR/resources/cert/printer.cer"',
+    '"$RUNTIME_ROOT/printer.cer"',
+    "failed to package a parseable printer certificate file",
+)
+require(
+    "tools/slicer_linux_runtime/wsl/slicer_linux_runtime_wsl_run_host.sh",
+    "PRINTER_CERT_SRC",
+    'append_source "printer.cer"',
 )
 require(
     "tools/slicer_linux_runtime_host/slicer-linux-runtime-host-wrapper",
     "linux-runtime-payloads",
     "orcastudio-linux-guest-payload-v3-content-addressed",
     "PAYLOAD_MARKER",
+    "printer.cer",
     "disable_guest_rosetta_aot_cache",
     "systemctl stop rosettad.service",
     "ConditionPathExists=!/etc/orcastudio-rosetta-aot-disabled",
@@ -716,7 +730,16 @@ require(
 require(
     "tools/slicer_linux_runtime/wsl/install_runtime.ps1",
     "ca-certificates.crt",
+    "printer.cer",
     "runtime-files.sha256",
+)
+require(
+    "src/slic3r/Utils/BBLNetworkPlugin.cpp",
+    '"printer.cer"',
+)
+require(
+    "src/slic3r/Utils/SlicerLinuxRuntime/SlicerLinuxRuntimeLauncher_win.cpp",
+    'std::string("printer.cer")',
 )
 require(
     "tools/slicer_linux_runtime/wsl/install_runtime.cmd",

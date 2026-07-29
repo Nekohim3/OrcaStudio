@@ -3815,6 +3815,7 @@ bool slicer_linux_runtime_ready(const boost::filesystem::path& component_folder,
         Slic3r::SlicerLinuxRuntime::linux_source_library_name(),
         std::string("ca-certificates.crt"),
         std::string("slicer_base64.cer"),
+        std::string("printer.cer"),
         std::string("ld-linux-x86-64.so.2"),
         std::string("libc.so.6"),
         std::string("libm.so.6"),
@@ -3840,7 +3841,8 @@ bool slicer_linux_runtime_ready(const boost::filesystem::path& component_folder,
         Slic3r::SlicerLinuxRuntime::linux_component_library_name(),
         Slic3r::SlicerLinuxRuntime::linux_source_library_name(),
         std::string("ca-certificates.crt"),
-        std::string("slicer_base64.cer")
+        std::string("slicer_base64.cer"),
+        std::string("printer.cer")
     };
 #endif
 
